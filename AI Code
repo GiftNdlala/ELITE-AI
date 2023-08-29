@@ -1,1 +1,39 @@
+from flask import flask, render_template, request
+import pandas as pd
+import joblib 
+
+app = Flask(__CommJobs__)
+
+# Load our trained machine learning model used on joblib
+     model = joblib.load('Add_Model_path_here.pkl')
+
+# Load our data for skill identification 
+     skills_data = pd.read_csv('skills_ID_here)['Skills'].tolist()
+
+@app.router('/')
+def index():
+      return render_template('index.html')
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+      user_input = request.form['user_input']
+
+
+ #Replace 'identify_skills' with our skill identification function
+    predicted_skills = identify_skills (user_input, skills_data)
+
+
+ #Replace 'predict' with the actual prediction function of your model
+    predicted_growth = model.predict(predicted_skills)
+
+
+     return render_template('results.html', predicted_growth = predicted_growth) 
+
+if __CommJobs__ == '__main__' :
+app.run(debug=True)
+
+
+
+
 
