@@ -43,6 +43,33 @@ def identify_skills(user_input, skills_data):
 if __CommJobs__ == '__main__' :
 app.run(debug=True)
 
+<html>
+<head>
+    <title> Job Market Trends Analysis </title>
+</head>
+<body>
+    <h1> Job Market Trends Analysis </h1>
+    <form action="/predict" method="POST">
+        <label for="user_input">Enter your skills:</label>
+        <!-- Replace 'user_input' with the name of your input field -->
+        <input type="text" id="user_input" name="user_input" required>
+        <button type="submit">Predict</button>
+    </form>
+
+</body>
+
+  
+<head>
+    <title>Result</title>
+</head>
+
+  
+<body>
+    <h1>Predicted Industry Growth Rate:</h1>
+    <p>{{ predicted_growth }}</p>
+</body>
+</html>
+
 
 
 
