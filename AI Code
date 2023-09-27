@@ -1,47 +1,128 @@
-from flask import flask, render_template, request
+rom flask import Flask, render_template, request
 import pandas as pd
-import joblib 
+import joblib
+import numpy as np
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.ensemble import RandomForestClassifier
+import spacy
+import requests
+from bs4 import BeautifulSoup
 
-app = Flask(__CommJobs__)
+app = Flask(__name__)
 
-#our trained machine learning model used on joblib
-     model = joblib.load('Desktop_Documents_SCHOOLWORK.pkl')
+# our pre-trained machine learning models and data
+model_supervised = joblib.load('job_trend_learning_model.pkl') 
 
-#our data for skill identification 
-     skills_data = pd.read_csv(Skill_Identifyer)['Skills'].tolist()
+# Supervised Learning Model
+model_nlp = load_model('sentiment_analysis_model.h5')                # NLP Model
+employment_data = pd.read_csv('employment_data.csv')                 # Time Series Data
+skills_data = pd.read_csv('skills_data.csv')['Skills'].tolist()      # Skills Data
 
-@app.router('/')
+# Tokenize and preprocess skills data for NLP
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(skills_data)
+MAX_SEQUENCE_LENGTH = 100
+
+
+# Load NLP model
+nlp = spacy.load("en_core_web_sm")
+
+# Initialize Spark
+from pyspark.sql import SparkSession
+
+# Initialize Spark session
+spark = SparkSession.builder \
+.appName("JobTrendsAnalysis") \
+.config("spark.some.config.option", "config-value") \
+.getOrCreate()
+
+
+# Load data into Spark DataFrame
+data = spark.read.csv('Data_file.csv', header=True, inferSchema=True)
+
+# Stop the Spark session
+spark.stop()
+@app.route('/')
 def index():
-      return render_template('index.html')
-
+return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
-      user_input = request.form['user_input']
+user_input = request.form['user_input']
 
 
- #our skill identification function
-    predicted_skills = Identify_skills (user_input, skills_data)
+# 1. Supervised Learning (Classification)
+predicted_skills = identify_skills(user_input, skills_data)
+predicted_category = model_supervised.predict([predicted_skills])       # Fix: Wrap in a list
+
+# 2. Time Series Analysis
+forecast = predict_employment_trend()
+
+# 3. Natural Language Processing (NLP)
+sentiment_score = perform_sentiment_analysis(user_input)
+
+# 4. Web Scraping for Real-Time Data Collection 
+scraped_data = scrape_job_postings('https://indeed.com/jobs') 
+scraped_data += scrape_job_postings('https://careers24.com/jobs') # Fix: 
+Concatenate results
+
+return render_template('results.html', 
+     predicted_category=predicted_category[0],                 # Fix:Extract the first element
+     forecast=forecast.tolist(),                               # Fix: Convert forecast to a list
+     sentiment_score=sentiment_score[0],                       # Fix: Extract the first element
+     scraped_data=scraped_data)                                # Include the scraped data in the template
+
+# Function for web scraping
+def scrape_job_postings(url):
+response = requests.get(url)
+if response.status_code == 200:
+    soup = BeautifulSoup(response.text, 'html.parser')
+    # Implement web scraping logic here
+      scraped_data = "Scraped data from the website"
+      return scraped_data
+else:
+      return "Failed to scrape data."
 
 
- #prediction function of your model
-    predicted_growth = model.predict(predicted_skills)
-
-
-     return render_template('results.html', predicted_growth = predicted_growth) 
-
+# Function to identify skills
 def identify_skills(user_input, skills_data):
-    user_input = user_input.lower()
     identified_skills = []
-
+    user_input_lower = user_input.lower()
     for skill in skills_data:
-        if skill.lower() in user_input:
-            identified_skills.append(skill)
+if skill.lower() in user_input_lower:
+    identified_skills.append(skill)
+return identified_skills
 
-    return identified_skills
 
-if __CommJobs__ == '__main__' :
-app.run(debug=True)
+# Function for time series analysis
+def predict_employment_trend():
+    train_data = employment_data[:-12]                             # Use the first N-12 months as training data
+    test_data = employment_data[-12:]                              # Use the last 12 months for testing
+    model = ExponentialSmoothing(train_data, seasonal='add', 
+seasonal_periods=12)
+    model_fit = model.fit()
+
+
+forecast = model_fit.forecast(steps=12)                            # Forecast the next 12 months
+     return forecast
+
+
+
+# Function for NLP sentiment analysis
+def perform_sentiment_analysis(user_input):
+   user_input_sequence = tokenizer.texts_to_sequences([user_input])
+   user_input_padded = pad_sequences(user_input_sequence, 
+   maxlen=MAX_SEQUENCE_LENGTH)
+   sentiment_score = model_nlp.predict(user_input_padded)
+   return sentiment_score
+
+
+
+if __name__ == '__main__':
+     app.run(debug=True)
 
 <html>
 <head>
